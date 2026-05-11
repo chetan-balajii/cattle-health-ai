@@ -7,158 +7,280 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
+        /* UI STYLES */
         body { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; padding: 15px; }
-        .container { background: white; padding: 25px; border-radius: 24px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .container { background: white; padding: 25px; border-radius: 24px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .lang-switch { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .lang-btn { padding: 8px 16px; border-radius: 20px; border: 1px solid #2e7d32; background: white; color: #2e7d32; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .lang-btn.active { background: #2e7d32; color: white; }
         h1 { color: #2e7d32; font-size: 24px; margin-bottom: 10px; }
-        .input-group { text-align: left; margin-top: 15px; width: 100%; }
+        .input-group { text-align: left; margin-top: 15px; }
         label { font-weight: bold; color: #2e7d32; font-size: 13px; }
-        input[type="file"] { width: 100%; font-size: 12px; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; box-sizing: border-box; cursor: pointer; }
-        #image-preview { width: 100%; border-radius: 15px; margin-top: 15px; display: none; border: 3px solid #a5d6a7; object-fit: contain; max-height: 250px; }
-        textarea { width: 100%; padding: 12px; margin-top: 5px; border: 2px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; font-family: inherit; resize: vertical; }
-        .btn { display: block; width: 100%; padding: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; border-radius: 14px; margin-top: 12px; text-transform: uppercase; transition: 0.2s; text-decoration: none; text-align: center; box-sizing: border-box; }
+        #image-preview { width: 100%; border-radius: 15px; margin-top: 15px; display: none; border: 3px solid #a5d6a7; object-fit: contain; max-height: 200px; }
+        textarea { width: 100%; padding: 12px; margin-top: 5px; border: 2px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
+        .btn { display: block; width: 100%; padding: 16px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; border-radius: 14px; margin-top: 12px; text-transform: uppercase; text-align: center; box-sizing: border-box; transition: 0.2s; }
         .btn-upload { background: #2e7d32; color: white; }
-        .btn-upload:hover { background: #1b5e20; }
         .btn-report { background: white; color: #2e7d32; border: 2px solid #2e7d32; }
-        .btn-whatsapp { background: #25D366; color: white; display: none; }
-        #result { background: #f1f8e9; padding: 12px; border-radius: 12px; margin: 15px 0; color: #1b5e20; font-weight: bold; border: 1px dashed #a5d6a7; font-size: 14px; min-height: 20px; }
+        .btn-vet { background: #d32f2f; color: white; display: none; }
+        .btn-history { background: #f5f5f5; color: #333; font-size: 12px; padding: 10px; border-radius: 10px; margin-top: 15px; }
+        #result { background: #f1f8e9; padding: 12px; border-radius: 12px; margin: 15px 0; color: #1b5e20; font-weight: bold; border: 1px dashed #a5d6a7; font-size: 16px; }
+        #history-box { display: none; margin-top: 15px; text-align: left; border-top: 1px solid #eee; padding-top: 10px; }
+        .history-item { font-size: 12px; padding: 8px; border-bottom: 1px solid #fafafa; display: flex; justify-content: space-between; }
+
+        /* THEMED PDF DESIGN */
+        #pdf-export-container { position: absolute; left: -9999px; top: 0; }
+        .pdf-page { width: 210mm; padding: 20mm; color: #333; background: white; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5; box-sizing: border-box; text-align: left; }
+        .pdf-header { background: #2e7d32; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 30px; }
+        .pdf-title { font-size: 22px; font-weight: bold; text-transform: uppercase; margin: 0; letter-spacing: 1px; }
+        .pdf-section { margin-bottom: 25px; border-left: 4px solid #a5d6a7; padding-left: 15px; }
+        .pdf-section h3 { font-size: 16px; font-weight: bold; color: #2e7d32; margin-bottom: 8px; text-transform: uppercase; }
+        .pdf-section p { font-size: 14px; margin: 4px 0; }
+        .pdf-section strong { color: #1b5e20; }
+        #pdf-action-list { list-style-type: none; padding: 0; }
+        #pdf-action-list li { position: relative; padding-left: 20px; margin-bottom: 5px; font-size: 14px; }
+        #pdf-action-list li::before { content: '✔'; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
+        .pdf-footer { margin-top: 50px; font-size: 11px; color: #666; border-top: 1px solid #e8f5e9; padding-top: 15px; font-style: italic; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🐄 Cattle Health AI</h1>
+    <div class="container" id="main-app">
+        <div class="lang-switch">
+            <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">English</button>
+            <button class="lang-btn" id="btn-kn" onclick="setLanguage('kn')">ಕನ್ನಡ</button>
+            <button class="lang-btn" id="btn-hi" onclick="setLanguage('hi')">हिन्दी</button>
+        </div>
+
+        <h1 id="ui-title">🐄 Cattle Health AI</h1>
         
         <div class="input-group">
-            <label>Select Animal Photo:</label>
+            <label id="ui-label-photo">Select Animal Photo:</label>
             <input type="file" id="file-input" accept="image/*">
         </div>
 
         <img id="image-preview" src="" alt="Preview">
-        
         <div id="result">Initializing AI...</div>
 
         <div class="input-group">
-            <label>Symptoms / Observations:</label>
-            <textarea id="subjective" rows="3" placeholder="Describe symptoms (e.g. coughing, skin lumps)..."></textarea>
+            <label id="ui-label-symptoms">Observations:</label>
+            <textarea id="subjective" rows="2" placeholder="Describe symptoms..."></textarea>
         </div>
 
-        <button class="btn btn-upload" onclick="predict()">🔍 Analyze Health</button>
-        <button class="btn btn-report" onclick="generateReport()">📄 Download SOAP Report</button>
-        <a id="whatsapp-btn" href="#" target="_blank" class="btn btn-whatsapp">📲 Alert Local Vet</a>
+        <button class="btn btn-upload" id="ui-btn-analyze" onclick="predict()">🔍 Analyze Health</button>
+        <button class="btn btn-report" id="ui-btn-report" onclick="generateReport()">📄 Download Report</button>
+        <button class="btn btn-vet" id="ui-btn-vet" onclick="smartVetAlert()">🚑 Alert Nearest Vet</button>
+        <button class="btn btn-history" id="ui-btn-hist" onclick="toggleHistory()">🕒 View Saved Reports</button>
+
+        <div id="history-box">
+            <h4 style="margin:0 0 10px 0; color: #2e7d32;" id="ui-hist-title">Recent Records</h4>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div id="pdf-export-container">
+        <div class="pdf-page" id="pdf-template">
+            <div class="pdf-header">
+                <div class="pdf-title" id="pdf-ui-title">VETERINARY DIAGNOSTIC REPORT</div>
+            </div>
+            
+            <div class="pdf-section">
+                <h3 id="pdf-ui-obs">1. SUBJECTIVE OBSERVATIONS</h3>
+                <p><strong id="pdf-ui-notes">Symptoms:</strong> <span id="pdf-val-symptoms"></span></p>
+            </div>
+
+            <div class="pdf-section">
+                <h3 id="pdf-ui-diag">2. ASSESSMENT (AI ANALYSIS)</h3>
+                <p><strong id="pdf-ui-res">Cattle Disease:</strong> <span id="pdf-val-result"></span></p>
+                </div>
+
+            <div class="pdf-section">
+                <h3 id="pdf-ui-plan">3. ACTIONABLE MANAGEMENT PLAN</h3>
+                <ul id="pdf-action-list"></ul>
+            </div>
+
+            <div class="pdf-footer">
+                <p id="pdf-ui-disclaimer">Disclaimer: This is an AI screening tool. Consult a professional for clinical diagnosis.</p>
+                <p><strong id="pdf-ui-date-label">Date:</strong> <span id="pdf-date"></span></p>
+            </div>
+        </div>
     </div>
 
     <script>
-        // FIXED URL from your specific project
         const MODEL_URL = "https://teachablemachine.withgoogle.com/models/Fc8kBcC4f/"; 
-        
-        let model, currentResult = "Not Analyzed", confidence = 0;
+        let model, rawResult = "Not Analyzed", confidence = 0, currentLang = 'en', modelLoaded = false;
 
-        // Automatically load the model when the page opens
-        async function loadModel() {
+        const i18n = {
+            en: { 
+                title: "Cattle Health AI", photo: "Select Animal Photo:", symptoms: "Observations:", analyze: "🔍 Analyze Health", report: "📄 Download Report", vet: "🚑 Alert Nearest Vet", hist: "🕒 View Saved Reports", healthy: "Healthy", disease: "Needs Attention", loading: "AI System Active", placeholder: "Describe symptoms...", histTitle: "Recent Records",
+                pdfTitle: "VETERINARY DIAGNOSTIC REPORT",
+                pdfObs: "1. SUBJECTIVE OBSERVATIONS",
+                pdfNotes: "Symptoms:",
+                pdfDiag: "2. ASSESSMENT (AI ANALYSIS)",
+                pdfRes: "Cattle Disease:",
+                pdfPlan: "3. ACTIONABLE MANAGEMENT PLAN",
+                pdfDateLabel: "Date:",
+                pdfDisclaimer: "Disclaimer: This is an AI screening tool. Consult a professional for clinical diagnosis.",
+                planHealthy: ["No immediate action required.", "Continue regular monitoring."],
+                planSick: ["Isolate the animal in a dry, shaded area.", "Monitor body temperature and appetite.", "Sanitize the surrounding environment.", "Consult a veterinarian for specific medical treatment."]
+            },
+            kn: { 
+                title: "ಜಾನುವಾರು ಆರೋಗ್ಯ AI", photo: "ಫೋಟೋ ಆಯ್ಕೆಮಾಡಿ:", symptoms: "ಲಕ್ಷಣಗಳು:", analyze: "🔍 ತಪಾಸಣೆ ಮಾಡಿ", report: "📄 ವರದಿ ಡೌನ್‌ಲೋಡ್", vet: "🚑 ವೈದ್ಯರಿಗೆ ತಿಳಿಸಿ", hist: "🕒 ಉಳಿಸಿದ ವರದಿಗಳು", healthy: "ಆರೋಗ್ಯವಾಗಿದೆ", disease: "ಗಮನಹರಿಸಬೇಕು", loading: "AI ಸಿದ್ಧವಾಗಿದೆ", placeholder: "ಲಕ್ಷಣಗಳನ್ನು ವಿವರಿಸಿ...", histTitle: "ದಾಖಲೆಗಳು",
+                pdfTitle: "ಪಶುವೈದ್ಯಕೀಯ ರೋಗನಿರ್ಣಯ ವರದಿ",
+                pdfObs: "1. ವ್ಯಕ್ತಿನಿಷ್ಠ ಅವಲೋಕನಗಳು",
+                pdfNotes: "ಲಕ್ಷಣಗಳು:",
+                pdfDiag: "2. ಮೌಲ್ಯಮಾಪನ (AI ವಿಶ್ಲೇಷಣೆ)",
+                pdfRes: "ಜಾನುವಾರು ರೋಗ:",
+                pdfPlan: "3. ಕ್ರಿಯಾಶೀಲ ನಿರ್ವಹಣಾ ಯೋಜನೆ",
+                pdfDateLabel: "ದಿನಾಂಕ:",
+                pdfDisclaimer: "ಹಕ್ಕುತ್ಯಾಗ: ಇದು AI ಸ್ಕ್ರೀನಿಂಗ್ ಸಾಧನವಾಗಿದೆ. ಕ್ಲಿನಿಕಲ್ ರೋಗನಿರ್ಣಯಕ್ಕಾಗಿ ವೃತ್ತಿಪರರನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+                planHealthy: ["ಯಾವುದೇ ತಕ್ಷಣದ ಕ್ರಮದ ಅಗತ್ಯವಿಲ್ಲ.", "ನಿಯಮಿತ ಮೇಲ್ವಿಚಾರಣೆಯನ್ನು ಮುಂದುವರಿಸಿ."],
+                planSick: ["ಪ್ರಾಣಿಯನ್ನು ಒಣ, ನೆರಳಿನ ಪ್ರದೇಶದಲ್ಲಿ ಪ್ರತ್ಯೇಕಿಸಿ.", "ದೇಹದ ಉಷ್ಣತೆ ಮತ್ತು ಹಸಿವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಿ.", "ಸುತ್ತಮುತ್ತಲಿನ ಪರಿಸರವನ್ನು ಸ್ವಚ್ಛಗೊಳಿಸಿ.", "ನಿರ್ದಿಷ್ಟ ವೈದ್ಯಕೀಯ ಚಿಕಿತ್ಸೆಗಾಗಿ ಪಶುವೈದ್ಯರನ್ನು ಸಂಪರ್ಕಿಸಿ."]
+            },
+            hi: { 
+                title: "पशु स्वास्थ्य AI", photo: "फोटो चुनें:", symptoms: "लक्षण:", analyze: "🔍 जांच करें", report: "📄 रिपोर्ट प्राप्त करें", vet: "🚑 डॉक्टर को बुलाएं", hist: "🕒 पुरानी रिपोर्ट", healthy: "स्वस्थ", disease: "रोग मिला", loading: "AI सक्रिय है", placeholder: "लक्षणों का वर्णन करें...", histTitle: "हालिया रिकॉर्ड",
+                pdfTitle: "पशु चिकित्सा निदान रिपोर्ट",
+                pdfObs: "1. व्यक्तिपरक अवलोकन",
+                pdfNotes: "लक्षण:",
+                pdfDiag: "2. मूल्यांकन (एआई विश्लेषण)",
+                pdfRes: "पशु रोग:",
+                pdfPlan: "3. कार्रवाई योग्य प्रबंधन योजना",
+                pdfDateLabel: "दिनांक:",
+                pdfDisclaimer: "अस्वीकरण: यह एक एआई स्क्रीनिंग टूल है। नैदानिक निदान के लिए पेशेवर से परामर्श लें।",
+                planHealthy: ["किसी तत्काल कार्रवाई की आवश्यकता नहीं है।", "नियमित निगरानी जारी रखें।"],
+                planSick: ["पशु को सूखे, छायादार क्षेत्र में अलग करें।", "शरीैंर के तापमान और भूख की निगरानी करें।", "आस-पास के वातावरण को साफ करें।", "विशिष्ट चिकित्सा उपचार के लिए पशु चिकित्सक से परामर्श लें।"]
+            }
+        };
+
+        async function init() {
             try {
-                const url = MODEL_URL.endsWith('/') ? MODEL_URL : MODEL_URL + '/';
-                model = await tmImage.load(url + "model.json", url + "metadata.json");
-                document.getElementById("result").innerText = "AI System Active.";
-                console.log("Model Loaded Successfully");
-            } catch(e) { 
-                console.error("Model Load Error:", e);
-                document.getElementById("result").innerText = "Connection Error. Use a Live Server."; 
+                model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+                modelLoaded = true;
+                setLanguage(currentLang); 
+            } catch(e) { document.getElementById("result").innerText = "Error Loading AI"; }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const ui = i18n[lang];
+            document.getElementById('ui-title').innerText = ui.title;
+            document.getElementById('ui-label-photo').innerText = ui.photo;
+            document.getElementById('ui-label-symptoms').innerText = ui.symptoms;
+            document.getElementById('ui-btn-analyze').innerText = ui.analyze;
+            document.getElementById('ui-btn-report').innerText = ui.report;
+            document.getElementById('ui-btn-vet').innerText = ui.vet;
+            document.getElementById('ui-btn-hist').innerText = ui.hist;
+            document.getElementById('ui-hist-title').innerText = ui.histTitle;
+            document.getElementById('subjective').placeholder = ui.placeholder;
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+            if (modelLoaded && rawResult === "Not Analyzed") {
+                document.getElementById("result").innerText = ui.loading;
+            } else if (rawResult !== "Not Analyzed") {
+                let status = rawResult.toLowerCase().includes('healthy') ? ui.healthy : ui.disease;
+                document.getElementById("result").innerText = `${status} (${confidence}%)`;
             }
         }
 
-        // Image Preview Logic
-        document.getElementById('file-input').addEventListener('change', function(e) {
+        document.getElementById('file-input').onchange = e => {
             const reader = new FileReader();
-            reader.onload = function() {
+            reader.onload = () => { 
                 const img = document.getElementById('image-preview');
-                img.src = reader.result;
-                img.style.display = "block";
-                document.getElementById("result").innerText = "Image Loaded. Click Analyze.";
-            }
-            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
-        });
+                img.src = reader.result; 
+                img.style.display = 'block'; 
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
 
-        // AI Prediction Logic
         async function predict() {
+            if(!modelLoaded) return;
             const img = document.getElementById('image-preview');
-            const resultDiv = document.getElementById("result");
-
-            if (!img.src || img.style.display === "none") {
-                alert("Please select a photo first!");
-                return;
-            }
-            
-            resultDiv.innerText = "⚡ Analyzing... Please wait";
-            
-            try {
-                const predictions = await model.predict(img);
-                // Sort to get the highest probability first
-                predictions.sort((a, b) => b.probability - a.probability);
-                
-                currentResult = predictions[0].className;
-                confidence = (predictions[0].probability * 100).toFixed(1);
-                
-                resultDiv.innerText = `Result: ${currentResult} (${confidence}%)`;
-                
-                // Show WhatsApp button if the animal is not healthy
-                const waBtn = document.getElementById("whatsapp-btn");
-                if(currentResult.toLowerCase().includes("healthy")) {
-                    waBtn.style.display = "none";
-                } else {
-                    waBtn.style.display = "block";
-                    const message = encodeURIComponent(`Alert: My Cattle Health AI detected ${currentResult} (${confidence}% confidence). Please advise.`);
-                    waBtn.href = `https://wa.me/?text=${message}`;
-                }
-            } catch(err) { 
-                console.error("Prediction Error:", err);
-                resultDiv.innerText = "Analysis failed. Ensure model is loaded."; 
-            }
+            if(!img.src || img.style.display === "none") return alert("Upload photo!");
+            document.getElementById("result").innerText = "Analyzing...";
+            const predictions = await model.predict(img);
+            predictions.sort((a,b) => b.probability - a.probability);
+            rawResult = predictions[0].className;
+            confidence = (predictions[0].probability * 100).toFixed(1);
+            let ui = i18n[currentLang];
+            let status = rawResult.toLowerCase().includes('healthy') ? ui.healthy : ui.disease;
+            document.getElementById("result").innerText = `${status} (${confidence}%)`;
+            if(!rawResult.toLowerCase().includes('healthy')) document.getElementById('ui-btn-vet').style.display = 'block';
+            saveToHistory(status);
         }
 
-        // PDF Report Generation
+        function saveToHistory(status) {
+            let logs = JSON.parse(localStorage.getItem('CattleLogs_Final_V3') || "[]");
+            logs.unshift({ date: new Date().toLocaleDateString(), result: status });
+            localStorage.setItem('CattleLogs_Final_V3', JSON.stringify(logs.slice(0, 10)));
+        }
+
+        function toggleHistory() {
+            const box = document.getElementById('history-box');
+            box.style.display = box.style.display === 'block' ? 'none' : 'block';
+            const logs = JSON.parse(localStorage.getItem('CattleLogs_Final_V3') || "[]");
+            document.getElementById('history-list').innerHTML = logs.map(l => `<div class="history-item"><span>${l.date}</span><b>${l.result}</b></div>`).join('');
+        }
+
+function smartVetAlert() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+
+            const symptoms = document.getElementById('subjective').value || "No symptoms recorded";
+
+            const verdict = `${rawResult} (${confidence}% Confidence)`;
+
+            const msg =
+`CATTLE HEALTH EMERGENCY
+
+1. AI VERDICT: ${verdict}
+
+2. REPORT DETAILS: Symptoms: ${symptoms}
+
+3. LOCATION LINK: https://www.google.com/maps?q=${lat},${lon}`;
+
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        });
+    } else {
+        alert("Enable GPS.");
+    }
+}
+
         function generateReport() {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                const symptoms = document.getElementById('subjective').value || "No symptoms noted.";
-                
-                doc.setFont("helvetica", "bold");
-                doc.setTextColor(46, 125, 50);
-                doc.text("VETERINARY SOAP REPORT", 20, 20);
-                
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(10);
-                doc.text("S - SUBJECTIVE (Symptoms):", 20, 40);
-                doc.setFont("helvetica", "normal");
-                doc.text(doc.splitTextToSize(symptoms, 160), 25, 47);
-                
-                doc.setFont("helvetica", "bold");
-                doc.text("O - OBJECTIVE (Clinical Findings):", 20, 70);
-                doc.setFont("helvetica", "normal");
-                doc.text("AI Image Analysis performed on device.", 25, 77);
-                
-                doc.setFont("helvetica", "bold");
-                doc.text("A - ASSESSMENT (AI Diagnosis):", 20, 95);
-                doc.setFont("helvetica", "normal");
-                doc.text(`Condition: ${currentResult} (${confidence}% confidence).`, 25, 102);
-                
-                doc.setFont("helvetica", "bold");
-                doc.text("P - PLAN (Recommended Management):", 20, 120);
-                doc.setFont("helvetica", "normal");
-                const plan = currentResult.toLowerCase().includes("healthy") ? "Maintain nutrition and monitor." : "Isolate animal immediately. Clean area with Neem water. Consult a vet.";
-                doc.text(doc.splitTextToSize(plan, 160), 25, 127);
-                
-                doc.text(`Date Generated: ${new Date().toLocaleString()}`, 20, 160);
-                doc.save("Cattle_Health_Report.pdf");
-            } catch(e) {
-                alert("Error generating PDF. Make sure you have analyzed an image first.");
-            }
+            if(rawResult === "Not Analyzed") return alert("Analyze an image first!");
+            const ui = i18n[currentLang];
+            document.getElementById('pdf-ui-title').innerText = ui.pdfTitle;
+            document.getElementById('pdf-ui-obs').innerText = ui.pdfObs;
+            document.getElementById('pdf-ui-notes').innerText = ui.pdfNotes;
+            document.getElementById('pdf-ui-diag').innerText = ui.pdfDiag;
+            document.getElementById('pdf-ui-res').innerText = ui.pdfRes;
+            document.getElementById('pdf-ui-plan').innerText = ui.pdfPlan;
+            document.getElementById('pdf-ui-disclaimer').innerText = ui.pdfDisclaimer;
+            document.getElementById('pdf-ui-date-label').innerText = ui.pdfDateLabel;
+            document.getElementById('pdf-date').innerText = new Date().toLocaleDateString();
+            document.getElementById('pdf-val-symptoms').innerText = document.getElementById('subjective').value || "None recorded";
+            document.getElementById('pdf-val-result').innerText = rawResult.toLowerCase().includes('healthy') ? ui.healthy : ui.disease;
+            const actionList = document.getElementById('pdf-action-list');
+            actionList.innerHTML = '';
+            const planSteps = rawResult.toLowerCase().includes('healthy') ? ui.planHealthy : ui.planSick;
+            planSteps.forEach(step => {
+                const li = document.createElement('li');
+                li.innerText = step;
+                actionList.appendChild(li);
+            });
+            const element = document.getElementById('pdf-template');
+            const opt = {
+                margin: 5,
+                filename: `Cattle_Disease_Report_${currentLang}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
         }
-
-        // Start loading the model immediately
-        loadModel();
+        init();
     </script>
 </body>
 </html>
