@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cattle Health AI</title>
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://cloudflare.com"></script>
+    
+    <style>
+        body { 
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
+            font-family: 'Segoe UI', sans-serif; min-height: 100vh; 
+            display: flex; align-items: center; justify-content: center; margin: 0; padding: 20px;
+        }
+        .container { 
+            background: white; padding: 30px; border-radius: 24px; 
+            max-width: 450px; width: 100%; text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        h1 { color: #2e7d32; margin-bottom: 10px; }
+        
+        #image-preview { 
+            width: 100%; border-radius: 15px; 
+            margin-top: 15px; display: none; border: 3px solid #a5d6a7;
+        }
+
+        .input-group { text-align: left; margin-top: 15px; }
+        label { font-weight: bold; color: #2e7d32; font-size: 14px; }
+        
+        textarea { 
+            width: 100%; padding: 12px; margin-top: 5px; border: 2px solid #e0e0e0; border-radius: 12px; 
+            box-sizing: border-box; transition: border-color 0.3s; font-family: inherit;
+        }
+        textarea:focus { border-color: #66bb6a; outline: none; }
+
+        .btn { 
+            display: block; width: 100%; padding: 16px; font-size: 16px; font-weight: 700; 
+            cursor: pointer; border: none; border-radius: 14px; margin-top: 15px; 
+            text-transform: uppercase; transition: all 0.2s ease;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-upload { background: #2e7d32; color: white; }
+        .btn-upload:hover { background: #1b5e20; transform: translateY(-2px); }
+        .btn-report { background: white; color: #2e7d32; border: 2px solid #2e7d32; }
+        .btn-report:hover { background: #f1f8e9; }
+
+        #result { 
+            background: #f1f8e9; padding: 15px; border-radius: 12px; 
+            margin: 20px 0; color: #1b5e20; font-weight: bold;
+            border: 1px dashed #a5d6a7; min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🐄 Cattle Health AI</h1>
+        
+        <div class="input-group">
+            <label>Select Animal Photo:</label>
+            <input type="file" id="file-input" accept="image/*" class="btn" style="background: #fafafa; border: 1px solid #ddd; font-size: 12px;">
+        </div>
+        
+        <img id="image-preview" src="" alt="Preview">
+        
+        <div id="result">Waiting for image...</div>
+
+        <div class="input-group">
+            <label>Symptoms / Observations:</label>
+            <textarea id="subjective" rows="3" placeholder="Describe symptoms..."></textarea>
+        </div>
+
+        <button class="btn btn-upload" onclick="predict()">🔍 Analyze Health</button>
+        <button class="btn btn-report" onclick="generateReport()">📄 Download Health Report</button>
+    </div>
+
+    <script>
+        // Your specific model link
+        const MODEL_URL = "https://withgoogle.com";
+        let model, currentResult = "Not Analyzed", confidence = 0;
+
+        async function loadModel() {
+            try {
+                model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+                document.getElementById("result").innerText = "AI System Active.";
+            } catch(e) {
+                document.getElementById("result").innerText = "Model load error. Check internet.";
+            }
+        }
+
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = document.getElementById('image-preview');
+                img.src = reader.result;
+                img.style.display = "block";
+                document.getElementById("result").innerText = "Image loaded. Tap Analyze.";
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        async function predict() {
+            const img = document.getElementById('image-preview');
+            const resultDiv = document.getElementById("result");
+            
+            if (!img.src || img.style.display === "none") {
+                alert("Please select a photo first!");
+                return;
+            }
+
+            resultDiv.innerText = "⚡ Analyzing... Please wait";
+            
+            // Give the browser a moment to update the UI
+            setTimeout(async () => {
+                try {
+                    const prediction = await model.predict(img);
+                    // Get highest prediction
+                    let topResult = prediction[0];
+                    for(let i=1; i<prediction.length; i++) {
+                        if(prediction[i].probability > topResult.probability) topResult = prediction[i];
+                    }
+                    
+                    currentResult = topResult.className;
+                    confidence = (topResult.probability * 100).toFixed(1);
+                    resultDiv.innerText = `Result: ${currentResult} (${confidence}%)`;
+                } catch(err) {
+                    resultDiv.innerText = "Error during analysis. Try again.";
+                }
+            }, 300);
+        }
+
+        function generateReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const symptoms = document.getElementById('subjective').value || "No symptoms noted.";
+
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(46, 125, 50);
+            doc.text("CATTLE HEALTH REPORT", 20, 20);
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+            doc.text("S - Subjective (Symptoms):", 20, 40);
+            doc.setFont("helvetica", "normal");
+            doc.text(doc.splitTextToSize(symptoms, 160), 25, 47);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("A - Assessment (AI Diagnosis):", 20, 75);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Condition: ${currentResult} (${confidence}% confidence).`, 25, 82);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("P - Plan (Next Steps):", 20, 100);
+            doc.setFont("helvetica", "normal");
+            const plan = currentResult.toLowerCase().includes("healthy") 
+                ? "Maintain regular checkups and nutrition." 
+                : "Isolate animal. Alert local vet. Apply antiseptic.";
+            doc.text(doc.splitTextToSize(plan, 160), 25, 107);
+
+            doc.text(`Report Date: ${new Date().toLocaleString()}`, 20, 150);
+            doc.save("Cattle_Health_Report.pdf");
+        }
+
+        loadModel();
+    </script>
+</body>
+</html>
