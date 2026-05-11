@@ -4,122 +4,160 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cattle Health AI</title>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://cloudflare.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <style>
-        body { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 24px; max-width: 450px; width: 100%; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
-        h1 { color: #2e7d32; margin-bottom: 10px; }
-        #image-preview { width: 100%; border-radius: 15px; margin-top: 15px; display: none; border: 3px solid #a5d6a7; }
-        .input-group { text-align: left; margin-top: 15px; }
-        label { font-weight: bold; color: #2e7d32; font-size: 14px; }
-        textarea { width: 100%; padding: 12px; margin-top: 5px; border: 2px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; font-family: inherit; }
-        .btn { display: block; width: 100%; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; border-radius: 14px; margin-top: 15px; text-transform: uppercase; transition: 0.2s; text-decoration: none; }
+        body { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; padding: 15px; }
+        .container { background: white; padding: 25px; border-radius: 24px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); box-sizing: border-box; }
+        h1 { color: #2e7d32; font-size: 24px; margin-bottom: 10px; }
+        .input-group { text-align: left; margin-top: 15px; width: 100%; }
+        label { font-weight: bold; color: #2e7d32; font-size: 13px; }
+        input[type="file"] { width: 100%; font-size: 12px; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; box-sizing: border-box; cursor: pointer; }
+        #image-preview { width: 100%; border-radius: 15px; margin-top: 15px; display: none; border: 3px solid #a5d6a7; object-fit: contain; max-height: 250px; }
+        textarea { width: 100%; padding: 12px; margin-top: 5px; border: 2px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; font-family: inherit; resize: vertical; }
+        .btn { display: block; width: 100%; padding: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; border-radius: 14px; margin-top: 12px; text-transform: uppercase; transition: 0.2s; text-decoration: none; text-align: center; box-sizing: border-box; }
         .btn-upload { background: #2e7d32; color: white; }
+        .btn-upload:hover { background: #1b5e20; }
         .btn-report { background: white; color: #2e7d32; border: 2px solid #2e7d32; }
         .btn-whatsapp { background: #25D366; color: white; display: none; }
-        #result { background: #f1f8e9; padding: 15px; border-radius: 12px; margin: 20px 0; color: #1b5e20; font-weight: bold; border: 1px dashed #a5d6a7; }
+        #result { background: #f1f8e9; padding: 12px; border-radius: 12px; margin: 15px 0; color: #1b5e20; font-weight: bold; border: 1px dashed #a5d6a7; font-size: 14px; min-height: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🐄 Cattle Health AI</h1>
+        
         <div class="input-group">
             <label>Select Animal Photo:</label>
-            <input type="file" id="file-input" accept="image/*" class="btn" style="background:#fafafa; border:1px solid #ddd; font-size:12px;">
+            <input type="file" id="file-input" accept="image/*">
         </div>
-        <img id="image-preview" src="" alt="Preview" crossorigin="anonymous">
-        <div id="result">System Active. Upload image.</div>
+
+        <img id="image-preview" src="" alt="Preview">
+        
+        <div id="result">Initializing AI...</div>
+
         <div class="input-group">
             <label>Symptoms / Observations:</label>
-            <textarea id="subjective" rows="3" placeholder="e.g. Coughing, lumps, fever..."></textarea>
+            <textarea id="subjective" rows="3" placeholder="Describe symptoms (e.g. coughing, skin lumps)..."></textarea>
         </div>
+
         <button class="btn btn-upload" onclick="predict()">🔍 Analyze Health</button>
         <button class="btn btn-report" onclick="generateReport()">📄 Download SOAP Report</button>
-        <a id="whatsapp-btn" href="#" class="btn btn-whatsapp">📲 Alert Local Vet</a>
+        <a id="whatsapp-btn" href="#" target="_blank" class="btn btn-whatsapp">📲 Alert Local Vet</a>
     </div>
 
     <script>
-        const MODEL_URL = "https://withgoogle.com";
+        // FIXED URL from your specific project
+        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/Fc8kBcC4f/"; 
+        
         let model, currentResult = "Not Analyzed", confidence = 0;
 
+        // Automatically load the model when the page opens
         async function loadModel() {
             try {
-                model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
-            } catch(e) { document.getElementById("result").innerText = "Error loading AI."; }
+                const url = MODEL_URL.endsWith('/') ? MODEL_URL : MODEL_URL + '/';
+                model = await tmImage.load(url + "model.json", url + "metadata.json");
+                document.getElementById("result").innerText = "AI System Active.";
+                console.log("Model Loaded Successfully");
+            } catch(e) { 
+                console.error("Model Load Error:", e);
+                document.getElementById("result").innerText = "Connection Error. Use a Live Server."; 
+            }
         }
 
+        // Image Preview Logic
         document.getElementById('file-input').addEventListener('change', function(e) {
             const reader = new FileReader();
             reader.onload = function() {
                 const img = document.getElementById('image-preview');
                 img.src = reader.result;
                 img.style.display = "block";
-                document.getElementById("result").innerText = "Image Ready. Click Analyze.";
+                document.getElementById("result").innerText = "Image Loaded. Click Analyze.";
             }
-            reader.readAsDataURL(e.target.files[0]);
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
         });
 
+        // AI Prediction Logic
         async function predict() {
             const img = document.getElementById('image-preview');
-            if (!img.src || img.style.display === "none") return alert("Please upload an image!");
+            const resultDiv = document.getElementById("result");
+
+            if (!img.src || img.style.display === "none") {
+                alert("Please select a photo first!");
+                return;
+            }
             
-            document.getElementById("result").innerText = "⚡ Analyzing... Please wait";
+            resultDiv.innerText = "⚡ Analyzing... Please wait";
             
-            setTimeout(async () => {
-                try {
-                    const prediction = await model.predict(img);
-                    prediction.sort((a, b) => b.probability - a.probability);
-                    currentResult = prediction[0].className;
-                    confidence = (prediction[0].probability * 100).toFixed(1);
-                    document.getElementById("result").innerText = `Result: ${currentResult} (${confidence}%)`;
-                    
-                    const waBtn = document.getElementById("whatsapp-btn");
-                    if(currentResult.toLowerCase().includes("lumpy") || currentResult.toLowerCase().includes("infected")) {
-                        waBtn.style.display = "block";
-                        waBtn.href = `https://wa.me Alert: My Cattle AI detected ${currentResult}. Location: Village Field.`;
-                    }
-                } catch(err) { document.getElementById("result").innerText = "Error: Try a different image."; }
-            }, 500);
+            try {
+                const predictions = await model.predict(img);
+                // Sort to get the highest probability first
+                predictions.sort((a, b) => b.probability - a.probability);
+                
+                currentResult = predictions[0].className;
+                confidence = (predictions[0].probability * 100).toFixed(1);
+                
+                resultDiv.innerText = `Result: ${currentResult} (${confidence}%)`;
+                
+                // Show WhatsApp button if the animal is not healthy
+                const waBtn = document.getElementById("whatsapp-btn");
+                if(currentResult.toLowerCase().includes("healthy")) {
+                    waBtn.style.display = "none";
+                } else {
+                    waBtn.style.display = "block";
+                    const message = encodeURIComponent(`Alert: My Cattle Health AI detected ${currentResult} (${confidence}% confidence). Please advise.`);
+                    waBtn.href = `https://wa.me/?text=${message}`;
+                }
+            } catch(err) { 
+                console.error("Prediction Error:", err);
+                resultDiv.innerText = "Analysis failed. Ensure model is loaded."; 
+            }
         }
 
+        // PDF Report Generation
         function generateReport() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const symptoms = document.getElementById('subjective').value || "No symptoms reported.";
-
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(46, 125, 50);
-            doc.text("VETERINARY SOAP REPORT", 20, 20);
-            
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(10);
-            doc.text("S - SUBJECTIVE (Chief Complaint):", 20, 40);
-            doc.setFont("helvetica", "normal");
-            doc.text(doc.splitTextToSize(symptoms, 160), 25, 47);
-
-            doc.setFont("helvetica", "bold");
-            doc.text("O - OBJECTIVE (Clinical Observations):", 20, 70);
-            doc.setFont("helvetica", "normal");
-            doc.text("Visual AI analysis performed on submitted photographic evidence.", 25, 77);
-
-            doc.setFont("helvetica", "bold");
-            doc.text("A - ASSESSMENT (Diagnosis):", 20, 95);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Condition: ${currentResult} (${confidence}% AI Confidence).`, 25, 102);
-
-            doc.setFont("helvetica", "bold");
-            doc.text("P - PLAN (Treatment/Management):", 20, 120);
-            doc.setFont("helvetica", "normal");
-            const plan = currentResult.toLowerCase().includes("healthy") 
-                ? "Continue standard nutrition. Routine check-up recommended." 
-                : "ISOLATE ANIMAL. Use Neem water for hygiene. Contact Vet 1962 Helpline.";
-            doc.text(doc.splitTextToSize(plan, 160), 25, 127);
-
-            doc.text(`Report Generated: ${new Date().toLocaleString()}`, 20, 160);
-            doc.save("Cattle_Health_Report.pdf");
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const symptoms = document.getElementById('subjective').value || "No symptoms noted.";
+                
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(46, 125, 50);
+                doc.text("VETERINARY SOAP REPORT", 20, 20);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(10);
+                doc.text("S - SUBJECTIVE (Symptoms):", 20, 40);
+                doc.setFont("helvetica", "normal");
+                doc.text(doc.splitTextToSize(symptoms, 160), 25, 47);
+                
+                doc.setFont("helvetica", "bold");
+                doc.text("O - OBJECTIVE (Clinical Findings):", 20, 70);
+                doc.setFont("helvetica", "normal");
+                doc.text("AI Image Analysis performed on device.", 25, 77);
+                
+                doc.setFont("helvetica", "bold");
+                doc.text("A - ASSESSMENT (AI Diagnosis):", 20, 95);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Condition: ${currentResult} (${confidence}% confidence).`, 25, 102);
+                
+                doc.setFont("helvetica", "bold");
+                doc.text("P - PLAN (Recommended Management):", 20, 120);
+                doc.setFont("helvetica", "normal");
+                const plan = currentResult.toLowerCase().includes("healthy") ? "Maintain nutrition and monitor." : "Isolate animal immediately. Clean area with Neem water. Consult a vet.";
+                doc.text(doc.splitTextToSize(plan, 160), 25, 127);
+                
+                doc.text(`Date Generated: ${new Date().toLocaleString()}`, 20, 160);
+                doc.save("Cattle_Health_Report.pdf");
+            } catch(e) {
+                alert("Error generating PDF. Make sure you have analyzed an image first.");
+            }
         }
+
+        // Start loading the model immediately
         loadModel();
     </script>
 </body>
